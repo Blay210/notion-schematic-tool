@@ -14,7 +14,7 @@ npm test
 npm run build
 ```
 
-별도 Git 저장소로 올린 다음 Vercel에서 그 저장소를 Import 하세요. Framework는 Next.js, Build Command는 `npm run build`, Output Directory는 Override를 끄고 Next.js 기본값으로 둡니다. 로컬 정적 내보내기 결과는 `out/`에 생성되지만, Vercel의 Next.js 어댑터가 이를 처리하므로 Output Directory에 `out`을 직접 지정하지 않습니다. 환경변수 없이 실행됩니다. `vercel.json`에 Notion iframe 허용 정책이 있습니다. 배포 후 실제 Notion 웹/앱에서 embed 호환성을 확인해야 합니다. Notion의 URL 길이 제한 및 도메인 정책에 따라 긴 링크는 거절될 수 있습니다.
+별도 Git 저장소로 올린 다음 Vercel에서 그 저장소를 Import 하세요. Framework는 Next.js, Build Command는 `npm run build`, Output Directory는 `vercel.json`에서 `.next`로 명시합니다. Vercel 대시보드의 수동 Override는 꺼두세요. 로컬 정적 내보내기 결과는 `out/`에 생성되지만, Vercel의 Next.js 어댑터가 이를 처리하므로 Output Directory에 `out`을 직접 지정하지 않습니다. 환경변수 없이 실행됩니다. `vercel.json`에 Notion iframe 허용 정책이 있습니다. 배포 후 실제 Notion 웹/앱에서 embed 호환성을 확인해야 합니다. Notion의 URL 길이 제한 및 도메인 정책에 따라 긴 링크는 거절될 수 있습니다.
 
 ## 사용
 
