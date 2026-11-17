@@ -1,6 +1,6 @@
 import {embedSchematicPNG} from './schematic-png';
 import type {Schematic} from './schematic';
-export async function exportSchematicPNG(source:SVGSVGElement,data:Schematic){
+export async function renderSchematicPNG(source:SVGSVGElement):Promise<Blob>{
  await document.fonts.ready;
  const content=source.querySelector(':scope > g') as SVGGElement|null;
  const box=content?.getBBox();
@@ -18,8 +18,17 @@ export async function exportSchematicPNG(source:SVGSVGElement,data:Schematic){
   const context=canvas.getContext('2d');if(!context)throw new Error('이미지를 만들지 못했어요.');
   context.fillStyle='#fff';context.fillRect(0,0,width,height);context.drawImage(image,0,0,width,height);
   const png=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG를 만들지 못했어요.')),'image/png'));
-  const bytes=await embedSchematicPNG(new Uint8Array(await png.arrayBuffer()),data);
-  const url=URL.createObjectURL(new Blob([bytes.buffer],{type:'image/png'}));
-  const link=document.createElement('a');link.href=url;link.download=`${(data.title||'회로').replace(/[\\/:*?"<>|]/g,'_')}.png`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  return png;
  }finally{URL.revokeObjectURL(svgURL);}
+}
+export async function exportSchematicPNG(source:SVGSVGElement,data:Schematic){
+ const png=await renderSchematicPNG(source);
+ const bytes=await embedSchematicPNG(new Uint8Array(await png.arrayBuffer()),data);
+ const url=URL.createObjectURL(new Blob([bytes.buffer],{type:'image/png'}));
+ const link=document.createElement('a');link.href=url;link.download=`${(data.title||'회로').replace(/[\\/:*?"<>|]/g,'_')}.png`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+export async function copySchematicPNG(source:SVGSVGElement){
+ if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw new Error('이 브라우저에서는 이미지 복사를 지원하지 않아요. PNG 내보내기를 이용해주세요.');
+ // Invoke write during the click gesture; render asynchronously inside ClipboardItem.
+ await navigator.clipboard.write([new ClipboardItem({'image/png':renderSchematicPNG(source)})]);
 }
