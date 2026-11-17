@@ -1,0 +1,151 @@
+/* Shared select menus, including their popup surfaces. */
+.moon-select {
+  display: inline-flex;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+  font-size: 14px;
+}
+.moon-select > select[hidden] {
+  display: none !important;
+}
+.moon-select .moon-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-width: 110px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e5ddef;
+  border-radius: 11px;
+  background: #fff;
+  color: #463c58;
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+  box-shadow: none;
+  outline: none;
+}
+.moon-select-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.moon-select-trigger > svg {
+  flex-shrink: 0;
+  color: #9b87b2;
+}
+.moon-select .moon-select-trigger:hover,
+.moon-select .moon-select-trigger[aria-expanded="true"] {
+  background: #f8f5fc;
+  border-color: #ded3eb;
+}
+.moon-select .moon-select-trigger:focus,
+.moon-select .moon-select-trigger:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.moon-select-menu[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  box-sizing: border-box;
+  border: 1px solid #e5ddef;
+  border-radius: 12px;
+  background: #fff;
+  color: #463c58;
+  box-shadow: 0 8px 28px #44315420;
+  overflow: auto;
+  font:
+    14px/1.5 "DM Sans",
+    var(--article-korean-font),
+    sans-serif;
+  overscroll-behavior: contain;
+}
+.moon-select-menu [role="option"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  min-height: 38px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.moon-select-menu [role="option"].active {
+  background: #f2ecfa;
+}
+.moon-select-menu [aria-selected="true"] {
+  color: #8061aa;
+}
+.moon-select-menu .disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.record-search > .moon-select {
+  flex-shrink: 0;
+}
+.record-search .moon-select-trigger {
+  min-height: 46px;
+}
+.record-fields label > .moon-select,
+.category-select > .moon-select {
+  width: 100%;
+}
+.diagram-inspector .moon-select {
+  width: 100%;
+}
+.block-workspace .diagram-tools .moon-select {
+  font-size: 13px;
+}
+.category-items > div > span {
+  flex: 1;
+}
+.category-items > div {
+  gap: 6px;
+}
+.category-items button[draggable="true"] {
+  cursor: grab;
+  touch-action: none;
+}
+.library-heading {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 330px);
+  column-gap: 32px;
+  align-items: end;
+}
+.library-heading > .overline,
+.library-heading > h1,
+.library-heading > p {
+  grid-column: 1;
+}
+.library-heading > .search-input {
+  grid-column: 2;
+  grid-row: 2 / 4;
+  width: 100%;
+  margin-bottom: 0;
+}
+.library-controls .filter-chips {
+  flex: 1;
+  width: 100%;
+}
+@media (max-width: 650px) {
+  .library-heading {
+    display: block;
+  }
+  .library-heading > .search-input {
+    margin-top: 20px;
+    max-width: none;
+  }
+  .record-search > .moon-select {
+    flex: 1;
+  }
+  .category-items > div {
+    gap: 2px;
+  }
+}

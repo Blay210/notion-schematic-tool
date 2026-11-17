@@ -1,0 +1,77 @@
+/* Keep Monaco-owned UI in its themed editor, with opaque overlays. */
+.pulse-workbench .monaco-editor .monaco-hover,
+.pulse-workbench .monaco-editor .suggest-widget {
+  background-color: var(--vscode-editorHoverWidget-background, var(--p-raised));
+  color: var(--vscode-editorHoverWidget-foreground, var(--p-text));
+  border-color: var(--vscode-editorHoverWidget-border, var(--p-border));
+}
+.pulse-workbench .monaco-editor .suggest-widget {
+  background-color: var(
+    --vscode-editorSuggestWidget-background,
+    var(--p-raised)
+  );
+  color: var(--vscode-editorSuggestWidget-foreground, var(--p-text));
+}
+.pulse-input-box select {
+  background: var(--p-editor);
+  color: var(--p-text);
+  border: 1px solid var(--p-border);
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+
+.pulse-file-menu {
+  position: fixed;
+  z-index: 30;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--p-raised);
+  color: var(--p-text);
+  border: 1px solid var(--p-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px #0005;
+}
+.pulse-file-menu button {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+.pulse-file-menu kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--p-muted);
+}
+
+.pulse-tree {
+  user-select: none;
+}
+.pulse-tree .multi-selected {
+  background: #8063ab38;
+  box-shadow: inset 2px 0 var(--p-accent);
+}
+.pulse-tree .drop-target,
+.pulse-tree.drop-target {
+  outline: 1px solid var(--p-accent);
+  outline-offset: -2px;
+  background: #8063ab28;
+}
+.pulse-project-root {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--p-border) !important;
+  margin-bottom: 5px;
+}
+
+.pulse-workbench .pulse-file-icon.verilog {
+  color: #89b9d9;
+}
+.pulse-workbench .pulse-file-icon.systemverilog {
+  color: #c4a0e5;
+}
+.pulse-workbench.pulse-light .pulse-file-icon.verilog {
+  color: #366d9b;
+}
+.pulse-workbench.pulse-light .pulse-file-icon.systemverilog {
+  color: #8454b2;
+}

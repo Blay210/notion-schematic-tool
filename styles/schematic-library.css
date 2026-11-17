@@ -1,0 +1,83 @@
+/* Schematic component library stays beside the canvas as the catalog grows. */
+.schematic-shortcuts {
+  font-size: 12px;
+  color: #88759e;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+.schematic-fullscreen .schematic-sidebar {
+  padding: 14px;
+  background: #faf8fd;
+}
+.schematic-components > input {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.schematic-component-list {
+  display: grid;
+  gap: 7px;
+}
+.schematic-component-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  text-align: left;
+}
+.schematic-component-symbol {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 34px;
+  border-radius: 8px;
+  background: #f0e9f8;
+  color: #8061aa;
+  font-size: 12px;
+  font-weight: 600;
+}
+.schematic-component-list button:hover {
+  background: #f3edf9;
+  border-color: #c5b3db;
+}
+.schematic-fullscreen header button[aria-pressed="true"] {
+  background: #ece3f7;
+  color: #76539e;
+  border-color: #c5b3db;
+}
+@media (max-width: 700px) {
+  .schematic-fullscreen .diagram-layout:not(.schematic-wide) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    overflow: hidden;
+  }
+  .schematic-fullscreen .diagram-viewport {
+    height: auto;
+    min-width: 0;
+  }
+  .schematic-fullscreen .schematic-sidebar {
+    overflow: auto;
+    border-top: 0;
+    border-left: 1px solid #ded5eb;
+    padding: 10px;
+  }
+  .schematic-component-list button {
+    gap: 6px;
+    padding: 7px;
+    font-size: 12px;
+  }
+  .schematic-component-symbol {
+    min-width: 32px;
+  }
+  .schematic-shortcuts {
+    font-size: 11px;
+  }
+}
+
+.writing-topbar {
+  flex-wrap: wrap;
+}
+.writing-topbar .visibility-switch {
+  flex-shrink: 0;
+}

@@ -1,0 +1,228 @@
+/* Editable block diagrams: scoped styles keep the article editor unchanged. */
+.diagram-block {
+  margin: 24px 0;
+  border: 1px solid #ded5eb;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.diagram-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #f4effa;
+}
+.diagram-block-header > div {
+  display: flex;
+  gap: 16px;
+}
+.diagram-block-header strong {
+  overflow-wrap: anywhere;
+}
+.diagram-preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  cursor: zoom-in;
+}
+.diagram-block button {
+  font: inherit;
+  color: #7055a2;
+}
+.diagram-dialog {
+  position: fixed;
+  inset: 0;
+  width: 96vw;
+  max-width: 1500px;
+  height: 94dvh;
+  max-height: 94dvh;
+  margin: auto;
+  padding: 0;
+  border: 1px solid #ded5eb;
+  border-radius: 16px;
+  background: #faf8fd;
+  color: #373449;
+  overflow: hidden;
+}
+.diagram-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.diagram-dialog::backdrop {
+  background: #30263c99;
+}
+.diagram-dialog header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #ded5eb;
+}
+.diagram-dialog header > div,
+.diagram-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.diagram-tools {
+  padding: 12px;
+  max-height: 150px;
+  overflow: auto;
+}
+.diagram-dialog button {
+  font: inherit;
+  font-size: 14px;
+  border: 1px solid #ded5eb;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.diagram-dialog button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.diagram-dialog .diagram-primary {
+  background: #8061aa;
+  color: #fff;
+}
+.diagram-dialog label {
+  font-size: 13px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.diagram-dialog input,
+.diagram-dialog select,
+.diagram-dialog textarea {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #ded5eb;
+  background: #fff;
+  border-radius: 6px;
+  padding: 7px;
+  min-width: 0;
+  max-width: 100%;
+}
+.diagram-dialog :focus-visible,
+.diagram-block :focus-visible {
+  outline: 3px solid #9172ba;
+  outline-offset: 2px;
+}
+.diagram-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  flex: 1;
+  min-height: 0;
+  border-block: 1px solid #ded5eb;
+}
+.diagram-layout.view-only {
+  grid-template-columns: 1fr;
+}
+.diagram-viewport {
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #eee9f4;
+  min-height: 180px;
+}
+.diagram-inspector {
+  overflow: auto;
+  padding: 16px;
+  border-left: 1px solid #ded5eb;
+}
+.diagram-inspector label {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 10px 0;
+}
+.diagram-inspector p,
+.diagram-dialog footer {
+  font-size: 12px;
+  color: #776a86;
+  line-height: 1.6;
+}
+.diagram-inspector fieldset {
+  border: 1px solid #ded5eb;
+  border-radius: 8px;
+  margin: 16px 0;
+  padding: 10px;
+  min-width: 0;
+}
+.diagram-inspector legend {
+  font-size: 14px;
+}
+.diagram-inspector button {
+  margin: 4px;
+}
+.diagram-dialog footer {
+  padding: 10px 16px;
+}
+.diagram-dialog .error-text {
+  padding: 0 16px;
+  margin: 4px 0;
+}
+.diagram-inspector textarea {
+  min-height: 70px;
+}
+@media (max-width: 700px) {
+  .diagram-layout {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .diagram-viewport {
+    flex: none;
+    height: 45dvh;
+  }
+  .diagram-inspector {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid #ded5eb;
+  }
+  .diagram-dialog header {
+    flex-wrap: wrap;
+  }
+  .diagram-dialog {
+    width: 98vw;
+    height: 96dvh;
+    max-height: 96dvh;
+  }
+  .diagram-block-header {
+    flex-wrap: wrap;
+  }
+}
+.record-backup {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid #ded5eb;
+  border-radius: 14px;
+}
+.record-backup h2 {
+  font-size: 18px;
+}
+.record-backup p {
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.record-backup .text-link {
+  margin: 12px;
+}
+.schematic-help {
+  padding: 8px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #776a86;
+}
+.diagram-inspector h3 {
+  font-size: 16px;
+  margin-top: 20px;
+}
+.diagram-inspector details p {
+  overflow-wrap: anywhere;
+}
