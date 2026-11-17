@@ -48,6 +48,13 @@ export function rlcSchematic():Schematic{const d=rcSchematic();return parseSchem
 
 export type Point={x:number;y:number};
 const equalPoint=(a:Point,b:Point)=>a.x===b.x&&a.y===b.y;
+/** Lock only after 8 screen pixels of intentional movement, independently of zoom. */
+export function wireDirection(locked:Wire['bend']|null,start:Point,cursor:Point,scale:number):Wire['bend']|null {
+ if(locked)return locked;
+ const dx=Math.abs(cursor.x-start.x)*scale,dy=Math.abs(cursor.y-start.y)*scale;
+ if(Math.max(dx,dy)<8)return null;
+ return dx>=dy?'horizontal':'vertical';
+}
 export function orthogonalRoute(points:Point[],bend:Wire['bend']='horizontal'):Point[]{
  const out:Point[]=[];for(const p of points){const prev=out.at(-1);if(prev&&!equalPoint(prev,p)&&prev.x!==p.x&&prev.y!==p.y)out.push(bend==='horizontal'?{x:p.x,y:prev.y}:{x:prev.x,y:p.y});if(!prev||!equalPoint(out.at(-1)!,p))out.push({...p});}
  for(let i=1;i<out.length-1;){const a=out[i-1],b=out[i],c=out[i+1];if((a.x===b.x&&b.x===c.x&&(b.y-a.y)*(c.y-b.y)>=0)||(a.y===b.y&&b.y===c.y&&(b.x-a.x)*(c.x-b.x)>=0))out.splice(i,1);else i++;}return out;
