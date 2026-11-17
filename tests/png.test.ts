@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {embedSchematicPNG,readSchematicPNG} from '../lib/schematic-png.ts';
+import {emptySchematic,parseSchematic,type Schematic} from '../lib/schematic.ts';
+const png=new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64'));
+const data:Schematic={...emptySchematic(),title:'증폭기 회로',parts:Array.from({length:40},(_,i)=>({id:`p${i}`,kind:'resistor',ref:`R${i+1}`,value:'1kΩ',x:200+(i%8)*160,y:200+Math.floor(i/8)*160,rotation:0,refOffset:{x:12.25,y:-63.75}})),wires:Array.from({length:39},(_,i)=>({id:`w${i}`,a:{part:`p${i}`,pin:1},b:{part:`p${i+1}`,pin:0},bend:'horizontal',points:[{x:200,y:200}]}))};
+test('40-part circuit PNG round-trips Korean text, wiring and free labels',async()=>{const result=await embedSchematicPNG(png,data);assert.deepEqual(await readSchematicPNG(result),parseSchematic(data));console.log(`40-part metadata: ${result.length-png.length} bytes; JSON: ${JSON.stringify(data).length} chars`);assert.ok(result.length-png.length<4096);});
+test('re-export replaces embedded data rather than accumulating versions',async()=>{const first=await embedSchematicPNG(png,data);const second=await embedSchematicPNG(first,emptySchematic());assert.deepEqual(await readSchematicPNG(second),emptySchematic());assert.ok(second.length<first.length);});
+test('plain, corrupt, truncated and oversized PNG files fail without a circuit',async()=>{await assert.rejects(readSchematicPNG(png),/편집용/);const encoded=await embedSchematicPNG(png,data);const bad=encoded.slice();bad[bad.length-20]^=1;await assert.rejects(readSchematicPNG(bad),/손상/);await assert.rejects(readSchematicPNG(encoded.slice(0,-5)));await assert.rejects(readSchematicPNG(new Uint8Array(21*1024*1024)));});
+test('invalid circuit data cannot be embedded',async()=>{await assert.rejects(embedSchematicPNG(png,{...data,parts:[{...data.parts[0],x:NaN}]}));});
