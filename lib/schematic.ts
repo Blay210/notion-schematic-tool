@@ -5,7 +5,7 @@ export type Terminal={part:string;pin:number};
 export type Wire={id:string;a:Terminal;b:Terminal;bend:'horizontal'|'vertical';points?:Point[]};
 export type Schematic={version:1;title:string;parts:Part[];wires:Wire[]};
 export const SHEET={width:4000,height:3000};
-export function emptySchematic():Schematic{return {version:1,title:'회로 스키메틱',parts:[],wires:[]};}
+export function emptySchematic():Schematic{return {version:1,title:'Schematic',parts:[],wires:[]};}
 export function terminalKey(t:Terminal){return `${t.part}:${t.pin}`;}
 export function sameTerminal(a:Terminal,b:Terminal){return a.part===b.part&&a.pin===b.pin;}
 export const GRID=20;
