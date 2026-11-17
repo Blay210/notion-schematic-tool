@@ -1,8 +1,6 @@
 @import '../styles/tool-dialogs.css';
-@import '../styles/pulse-base.css';
 @import '../styles/editor-controls.css';
 @import '../styles/schematic-library.css';
-@import '../styles/pulse-overlays.css';
 @import '../styles/diagram-workspace.css';
 @import '../styles/select-menus.css';
 :root{--ink:#39354d;--muted:#827c94;--purple:#8063ab;--purple-dark:#6b518e;--line:#eae6ef;--surface:white;--bg:#faf9fc;--article-code-font:Consolas,monospace;--article-korean-font:sans-serif}

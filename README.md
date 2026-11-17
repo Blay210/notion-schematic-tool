@@ -38,7 +38,7 @@ npm run build
 - 소자 목록은 검색과 All / Source / Analog / Digital 필터를 제공합니다. 기호를 보고 선택할 수 있습니다.
 - RLC, GND, VDC, IDC, VSIN, VPULSE, 스위치, 다이오드, NPN/PNP, NMOS/PMOS, OPAMP(3핀/전원 포함 5핀), Comparator 및 논리 게이트를 배치하고 연결할 수 있습니다.
 - 도형과 배선은 20 단위 그리드를 따릅니다. 소자 이름과 값은 별도로 자유롭게 드래그하고, 속성에서 내용을 수정합니다.
-- 계산기는 기존 RLC/VDC 범위입니다. 새 소자의 시뮬레이션 모델은 구현하지 않았으며 지원하지 않는 소자가 있으면 오류로 안내합니다.
+- 회로도 작성 전용입니다. 시뮬레이션 UI, 계산 엔진, 계산 Worker는 포함하지 않습니다.
 - 이전 다이어그램/Pulse 데이터와 원본 코드·라이선스는 보존하지만 새 작업 화면은 회로만 제공합니다.
 
 ## 구조
@@ -47,9 +47,9 @@ npm run build
 - `components/Workspace.tsx`: 프로젝트 목록과 도구 연결
 - `components/diagram`, `schematic`, `verilog`: 복사해서 독립 관리하는 편집기
 - `lib/projects.ts`: JSON 검증, 저장 이름, 스냅샷 포맷
-- `lib/circuit`, `lib/verilog`: 계산 및 언어/파형 처리
-- `scripts/`: Monaco와 Web Worker 빌드
-- `tests/`: 재사용한 계산/언어 테스트 및 스냅샷 검증
+- `lib/schematic.ts`: 소자, 핀, 배선 및 회로 데이터 검증
+- `scripts/`: 배포에서 사용하지 않는 생성 자산 정리 및 기존 데이터 호환 테스트 지원
+- `tests/`: 도형·배선·소자·스냅샷 검증 및 기존 언어 데이터 호환 테스트
 
 블로그 폴더를 import하거나 symlink하지 않습니다. 출처: My-Blog commit `c8125e78c675bc06d77f29a170ce37a23db6343d`. 기존 Pulse 코드의 출처와 라이선스는 `lib/verilog/SOURCE.md`, `lib/verilog/LICENSE`를 유지했습니다.
 

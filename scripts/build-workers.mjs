@@ -10,5 +10,3 @@ for(const name of ['model','vcd','vcd-worker']){
  const result=ts.transpileModule(source,{fileName:file.pathname,compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}});
  await writeFile(new URL(`${name}.js`,target),'/*\n'+license+'\n*/\n'+result.outputText);
 }
-const {build}=await import('esbuild');
-await build({entryPoints:[new URL('../lib/circuit/worker.ts',import.meta.url).pathname],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:new URL('circuit-worker.js',target).pathname});

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run assets && next dev",
-    "assets": "node scripts/build-workers.mjs && node scripts/build-monaco.mjs",
+    "assets": "node scripts/clean-unused-assets.mjs",
     "build": "npm run assets && next build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
