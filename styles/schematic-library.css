@@ -37,6 +37,7 @@
   font-size: 12px;
   font-weight: 600;
 }
+.schematic-component-list button[aria-pressed="true"],
 .schematic-component-list button:hover {
   background: #f3edf9;
   border-color: #c5b3db;

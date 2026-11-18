@@ -1,12 +1,21 @@
 'use client';
 import Select from '@/components/Select';
-import {useEffect,useRef,useState,type PointerEvent} from 'react';
+import {useEffect,useRef,useState,type MouseEvent,type PointerEvent} from 'react';
 import {createPortal} from 'react-dom';
 import {PARTS,SHEET,GRID,labelPosition,snap,wirePoints,moveWireSegment,nearestWireSegment,nearbyTerminal,freeEndpoint,pruneFreeEndpoints,wireDirection,orthogonalRoute,pinPosition,splitWireAt,parseSchematic,emptySchematic,nextRef,movePart,removePart,sameTerminal,connectionNets,schematicWarnings,type Schematic,type Part,type PartKind,type Terminal,type Point} from '../../lib/schematic';
 import SchematicCanvas from './SchematicCanvas';
 import PartSymbol from './PartSymbol';
 import {readSchematicPNG} from '../../lib/schematic-png';
 import {exportSchematicPNG,copySchematicPNG} from '../../lib/export-schematic-png';
+
+const defaultValues: Partial<Record<PartKind,string>> = {
+ resistor: '1k',
+ capacitor: '1uF',
+ inductor: '10mH',
+ voltage: 'DC 5V',
+ vsin: 'SIN(0 1 1k)',
+ vpulse: 'PULSE(0 5 0 1n 1n 500u 1m)',
+};
 export default function SchematicDialog({initial}:{initial:Schematic}){
  const editable=true;
  const exportCanvas=useRef<SVGSVGElement>(null);
@@ -25,6 +34,13 @@ export default function SchematicDialog({initial}:{initial:Schematic}){
  const [data,setData]=useState(()=>parseSchematic(initial)),[past,setPast]=useState<Schematic[]>([]),[future,setFuture]=useState<Schematic[]>([]);
  const [selected,setSelected]=useState(''),[pending,setPendingState]=useState<Terminal|null>(null),[zoom,setZoom]=useState(.65),[error,setError]=useState(''),[wireMode,setWireMode]=useState(false),[pointer,setPointer]=useState<{x:number;y:number}|null>(null);
  const [waypoints,setWaypoints]=useState<Point[]>([]);
+ const [placement,setPlacement]=useState<Part|null>(null);
+ const [placementPoint,setPlacementPoint]=useState<Point|null>(null);
+ const placementCursor=useRef<{clientX:number;clientY:number}|null>(null);
+ const partLimitReached=data.parts.filter(p=>p.kind!=='junction').length>=100;
+ const placementPreview=placement&&placementPoint
+  ? movePart(placement,placementPoint.x,placementPoint.y)
+  : null;
  const direction=useRef<"horizontal"|"vertical"|null>(null);
  const [bend,setBend]=useState<"horizontal"|"vertical">("horizontal");
  function resetDirection(){direction.current=null;setBend("horizontal");setPointer(null);}
@@ -39,38 +55,119 @@ export default function SchematicDialog({initial}:{initial:Schematic}){
  useEffect(()=>{if(!dirty)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
  useEffect(()=>{const el=viewport.current;if(!el)return;const wheel=(e:WheelEvent)=>{const scale=e.deltaMode===1?16:e.deltaMode===2?el.clientHeight:1;if(e.ctrlKey||e.metaKey){e.preventDefault();const box=el.getBoundingClientRect();resizeZoom(zoom*Math.exp(-e.deltaY*scale*.0015),e.clientX-box.left,e.clientY-box.top);}else if(e.shiftKey){e.preventDefault();el.scrollLeft+=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*scale;}};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[zoom]);
  function resizeZoom(value:number,x?:number,y?:number){const el=viewport.current;if(!el)return;const next=Math.max(.2,Math.min(3,value));const px=x??el.clientWidth/2,py=y??el.clientHeight/2;const left=(el.scrollLeft+px)*next/zoom-px,top=(el.scrollTop+py)*next/zoom-py;setZoom(next);requestAnimationFrame(()=>{el.scrollLeft=left;el.scrollTop=top;});}
- function toggleWire(){setWireMode(v=>!v);setPending(null);setWaypoints([]);setSelected('');viewport.current?.focus();}
+ function toggleWire(){cancelPlacement();setWireMode(v=>!v);setPending(null);setWaypoints([]);setSelected('');viewport.current?.focus();}
  function point(e:{clientX:number;clientY:number}){const box=svg.current?.getBoundingClientRect();return box?{x:snap((e.clientX-box.left)*SHEET.width/box.width),y:snap((e.clientY-box.top)*SHEET.height/box.height)}:null;}
  function rawPoint(e:{clientX:number;clientY:number}){const box=svg.current?.getBoundingClientRect();return box?{x:(e.clientX-box.left)*SHEET.width/box.width,y:(e.clientY-box.top)*SHEET.height/box.height}:null;}
  function blank(e:PointerEvent<SVGRectElement>){if(!editable||!wireMode)return;const raw=rawPoint(e),pt=point(e);if(!raw||!pt||pt.x<0||pt.x>SHEET.width||pt.y<0||pt.y>SHEET.height)return;const hit=nearbyTerminal(data,raw,zoom);if(hit){pin(hit);return;}try{const free=freeEndpoint(data,pt);if(!pending){setData(free.data);setPending(free.terminal);setPointer(pt);return;}const origin=pinPosition(data.parts.find(p=>p.id===pending.part)!,pending.pin);if(origin.x===pt.x&&origin.y===pt.y)return;const route=orthogonalRoute([origin,...waypoints,pt],direction.current??bend);if(change({...free.data,wires:[...free.data.wires,{id:crypto.randomUUID(),a:pending,b:free.terminal,bend:direction.current??bend,points:route.slice(1,-1)}]})){setPending(free.terminal);setWaypoints([]);setPointer(pt);}}catch(err){setError(err instanceof Error?err.message:'배선을 만들지 못했어요.');}viewport.current?.focus();}
  function routeTo(t:Terminal,d=data){if(!pending)return [];return orthogonalRoute([pinPosition(d.parts.find(p=>p.id===pending.part)!,pending.pin),...waypoints,pinPosition(d.parts.find(p=>p.id===t.part)!,t.pin)],direction.current??bend).slice(1,-1);}
  function startWireDrag(e:PointerEvent<SVGGElement>,id:string){if(wireMode||e.button!==0)return;const pt=point(e),w=data.wires.find(w=>w.id===id);if(!pt||!w)return;e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);viewport.current?.focus();const hit=nearestWireSegment(data,w,pt),pts=wirePoints(data,w);if(pts.length<2)return;wireDrag.current={before:data,id,index:hit.index,start:pt,horizontal:pts[hit.index].y===pts[hit.index+1].y};setSelected(id);}
  function change(next:Schematic){try{const checked=parseSchematic(next);setPast(p=>[...p.slice(-49),pruneFreeEndpoints(data)]);setFuture([]);setData(checked);setError('');return true;}catch(e){setError(e instanceof Error?e.message:'회로를 변경하지 못했어요.');return false;}}
- function undo(){if(!past.length)return;setFuture(f=>[data,...f]);setData(pruneFreeEndpoints(past[past.length-1]));setPast(p=>p.slice(0,-1));setPending(null);setWaypoints([]);}
- function redo(){if(!future.length)return;setPast(p=>[...p.slice(-49),pruneFreeEndpoints(data)]);setData(pruneFreeEndpoints(future[0]));setFuture(f=>f.slice(1));setPending(null);setWaypoints([]);}
- function replace(next:Schematic){if(data.parts.length&&!window.confirm('현재 회로를 바꿀까요? 실행 취소로 되돌릴 수 있어요.'))return;change(next);setPending(null);setWaypoints([]);setSelected('');}
- function add(kind:PartKind){if(data.parts.filter(p=>p.kind!=="junction").length>=100){setError('회로 하나에 소자는 100개까지 추가할 수 있어요.');return;}const p:Part={id:crypto.randomUUID(),kind,ref:nextRef(data,kind),value:({resistor:'1k',capacitor:'1uF',inductor:'10mH',voltage:'DC 5V',vsin:'SIN(0 1 1k)',vpulse:'PULSE(0 5 0 1n 1n 500u 1m)'} as Partial<Record<PartKind,string>>)[kind]||'',x:180+data.parts.length%8*100,y:180+Math.floor(data.parts.length/8)%5*120,rotation:0};change({...data,parts:[...data.parts,p]});setSelected(p.id);setWireMode(false);setPending(null);setWaypoints([]);viewport.current?.focus();}
+ function undo(){cancelPlacement();if(!past.length)return;setFuture(f=>[data,...f]);setData(pruneFreeEndpoints(past[past.length-1]));setPast(p=>p.slice(0,-1));setPending(null);setWaypoints([]);}
+ function redo(){cancelPlacement();if(!future.length)return;setPast(p=>[...p.slice(-49),pruneFreeEndpoints(data)]);setData(pruneFreeEndpoints(future[0]));setFuture(f=>f.slice(1));setPending(null);setWaypoints([]);}
+ function replace(next:Schematic){if(data.parts.length&&!window.confirm('현재 회로를 바꿀까요? 실행 취소로 되돌릴 수 있어요.'))return;cancelPlacement();change(next);setPending(null);setWaypoints([]);setSelected('');}
+ function clearPlacementPoint(){
+  placementCursor.current=null;
+  setPlacementPoint(null);
+ }
+ function cancelPlacement(){
+  clearPlacementPoint();
+  setPlacement(null);
+ }
+ function startPlacement(kind:PartKind){
+  if(partLimitReached)return;
+  setWireMode(false);
+  setPending(null);
+  setWaypoints([]);
+  setSelected('');
+  setError('');
+  setClipboardError(false);
+  clearPlacementPoint();
+  setPlacement({
+   id:crypto.randomUUID(),
+   kind,
+   ref:nextRef(data,kind),
+   value:defaultValues[kind]??'',
+   x:0,
+   y:0,
+   rotation:0,
+  });
+  viewport.current?.focus();
+ }
+ function updatePlacementPoint(cursor:{clientX:number;clientY:number}){
+  const pt=point(cursor);
+  const inside=pt&&pt.x>=0&&pt.y>=0&&pt.x<=SHEET.width&&pt.y<=SHEET.height;
+  setPlacementPoint(old=>inside
+   ? old?.x===pt.x&&old?.y===pt.y?old:pt
+   : null);
+ }
+ function placePart(e:MouseEvent<HTMLDivElement>){
+  if(!placement||e.button!==0||!svg.current?.contains(e.target as Node))return;
+  e.stopPropagation();
+  const cursor=placementCursor.current;
+  // Click coordinates can be rounded by the browser; use the matching pointer-up position.
+  const matchingPointer=cursor&&Math.abs(cursor.clientX-e.clientX)<1&&Math.abs(cursor.clientY-e.clientY)<1;
+  const pt=point(matchingPointer?cursor:e);
+  if(!pt)return;
+  const placed=movePart(placement,pt.x,pt.y);
+  if(change({...data,parts:[...data.parts,placed]})){
+   cancelPlacement();
+   setSelected(placed.id);
+   viewport.current?.focus();
+  }
+ }
  function update(patch:Partial<Part>){if(part)return change({...data,parts:data.parts.map(p=>p.id===part.id?movePart({...p,...patch},patch.x??p.x,patch.y??p.y):p)});}
  function remove(){if(part)change(removePart(data,part.id));else if(wire)change({...data,wires:data.wires.filter(w=>w.id!==wire.id)});setSelected('');setPending(null);setWaypoints([]);}
  function pin(t:Terminal){viewport.current?.focus();if(!wireMode){setSelected(t.part);return;}if(!pending){setPending(t);setPointer(pinPosition(data.parts.find(p=>p.id===t.part)!,t.pin));return;}if(sameTerminal(pending,t)){setPending(null);setWaypoints([]);return;}if(data.wires.some(w=>(sameTerminal(w.a,pending)&&sameTerminal(w.b,t))||(sameTerminal(w.b,pending)&&sameTerminal(w.a,t)))){setError('이미 연결된 핀이에요.');return;}if(change({...data,wires:[...data.wires,{id:crypto.randomUUID(),a:pending,b:t,points:routeTo(t),bend:direction.current??bend}]})){setPending(null);setWaypoints([]);}}
  function wireClick(e:{clientX:number;clientY:number},id:string){viewport.current?.focus();if(!wireMode){setSelected(id);return;}const pt=point(e);if(!pt)return;try{const split=splitWireAt(data,id,pt);let next=split.data;if(pending&&!sameTerminal(pending,split.terminal)&&!next.wires.some(w=>(sameTerminal(w.a,pending)&&sameTerminal(w.b,split.terminal))||(sameTerminal(w.b,pending)&&sameTerminal(w.a,split.terminal))))next={...next,wires:[...next.wires,{id:crypto.randomUUID(),a:pending,b:split.terminal,points:routeTo(split.terminal,split.data),bend:direction.current??bend}]};if(next===data||change(next)){setPending(pending?null:split.terminal);setWaypoints([]);}}catch(e){setError(e instanceof Error?e.message:'연결하지 못했어요.');}}
  function start(e:PointerEvent<SVGGElement>,p:Part){if(e.button!==0||wireMode)return;e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);e.currentTarget.closest<HTMLElement>('.diagram-viewport')?.focus();setSelected(p.id);drag.current={before:data,part:p,x:e.clientX,y:e.clientY};}
  function startLabel(e:PointerEvent<SVGTextElement>,p:Part,field:'ref'|'value'){if(e.button!==0||wireMode)return;e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);setSelected(p.id);const pos=labelPosition(p,field);labelDrag.current={before:data,part:p,field,x:e.clientX,y:e.clientY,offset:{x:pos.x-p.x,y:pos.y-p.y}};}
- function move(e:PointerEvent){const ld=labelDrag.current;if(ld&&svg.current){const box=svg.current.getBoundingClientRect();const offset={x:ld.offset.x+(e.clientX-ld.x)*SHEET.width/box.width,y:ld.offset.y+(e.clientY-ld.y)*SHEET.height/box.height};setData({...ld.before,parts:ld.before.parts.map(p=>p.id===ld.part.id?{...p,[ld.field==='ref'?'refOffset':'valueOffset']:offset}:p)});return;}const wd=wireDrag.current;if(wd){const pt=point(e);if(pt)setData(moveWireSegment(wd.before,wd.id,wd.index,wd.horizontal?pt.y-wd.start.y:pt.x-wd.start.x));return;}if(pan.current&&viewport.current){viewport.current.scrollLeft=pan.current.left-(e.clientX-pan.current.x);viewport.current.scrollTop=pan.current.top-(e.clientY-pan.current.y);return;}if(wireMode&&pending&&svg.current){const box=svg.current.getBoundingClientRect();const raw={x:(e.clientX-box.left)*SHEET.width/box.width,y:(e.clientY-box.top)*SHEET.height/box.height};const origin=waypoints.at(-1)??pinPosition(data.parts.find(p=>p.id===pending.part)!,pending.pin);const next=wireDirection(direction.current,origin,raw,box.width/SHEET.width);if(next&&next!==direction.current){direction.current=next;setBend(next);}let pt=point(e);const magnet=nearbyTerminal(data,raw,box.width/SHEET.width);const target=e.target as Element;const pinTarget=target.closest('[data-terminal-part]');const wireTarget=target.closest('[data-wire-id]');if(magnet){pt=pinPosition(data.parts.find(p=>p.id===magnet.part)!,magnet.pin);}else if(pinTarget){const p=data.parts.find(p=>p.id===pinTarget.getAttribute('data-terminal-part'));if(p)pt=pinPosition(p,Number(pinTarget.getAttribute('data-terminal-pin')));}else if(wireTarget&&pt){const w=data.wires.find(w=>w.id===wireTarget.getAttribute('data-wire-id'));if(w)pt=nearestWireSegment(data,w,pt).point;}setPointer(old=>old?.x===pt?.x&&old?.y===pt?.y?old:pt);}const d=drag.current;if(!d||!svg.current)return;const box=svg.current.getBoundingClientRect();const p=movePart(d.part,d.part.x+(e.clientX-d.x)*SHEET.width/box.width,d.part.y+(e.clientY-d.y)*SHEET.height/box.height);setData({...d.before,parts:d.before.parts.map(old=>old.id===p.id?p:old)});}
+ function move(e:PointerEvent){
+  if(placement&&!pan.current){
+   if(!svg.current?.contains(e.target as Node)){
+    clearPlacementPoint();
+    return;
+   }
+   placementCursor.current={clientX:e.clientX,clientY:e.clientY};
+   updatePlacementPoint(placementCursor.current);
+   return;
+  }
+  const ld=labelDrag.current;if(ld&&svg.current){const box=svg.current.getBoundingClientRect();const offset={x:ld.offset.x+(e.clientX-ld.x)*SHEET.width/box.width,y:ld.offset.y+(e.clientY-ld.y)*SHEET.height/box.height};setData({...ld.before,parts:ld.before.parts.map(p=>p.id===ld.part.id?{...p,[ld.field==='ref'?'refOffset':'valueOffset']:offset}:p)});return;}const wd=wireDrag.current;if(wd){const pt=point(e);if(pt)setData(moveWireSegment(wd.before,wd.id,wd.index,wd.horizontal?pt.y-wd.start.y:pt.x-wd.start.x));return;}if(pan.current&&viewport.current){viewport.current.scrollLeft=pan.current.left-(e.clientX-pan.current.x);viewport.current.scrollTop=pan.current.top-(e.clientY-pan.current.y);return;}if(wireMode&&pending&&svg.current){const box=svg.current.getBoundingClientRect();const raw={x:(e.clientX-box.left)*SHEET.width/box.width,y:(e.clientY-box.top)*SHEET.height/box.height};const origin=waypoints.at(-1)??pinPosition(data.parts.find(p=>p.id===pending.part)!,pending.pin);const next=wireDirection(direction.current,origin,raw,box.width/SHEET.width);if(next&&next!==direction.current){direction.current=next;setBend(next);}let pt=point(e);const magnet=nearbyTerminal(data,raw,box.width/SHEET.width);const target=e.target as Element;const pinTarget=target.closest('[data-terminal-part]');const wireTarget=target.closest('[data-wire-id]');if(magnet){pt=pinPosition(data.parts.find(p=>p.id===magnet.part)!,magnet.pin);}else if(pinTarget){const p=data.parts.find(p=>p.id===pinTarget.getAttribute('data-terminal-part'));if(p)pt=pinPosition(p,Number(pinTarget.getAttribute('data-terminal-pin')));}else if(wireTarget&&pt){const w=data.wires.find(w=>w.id===wireTarget.getAttribute('data-wire-id'));if(w)pt=nearestWireSegment(data,w,pt).point;}setPointer(old=>old?.x===pt?.x&&old?.y===pt?.y?old:pt);}const d=drag.current;if(!d||!svg.current)return;const box=svg.current.getBoundingClientRect();const p=movePart(d.part,d.part.x+(e.clientX-d.x)*SHEET.width/box.width,d.part.y+(e.clientY-d.y)*SHEET.height/box.height);setData({...d.before,parts:d.before.parts.map(old=>old.id===p.id?p:old)});}
  function end(cancel=false){const ld=labelDrag.current;if(ld){labelDrag.current=null;if(cancel)setData(ld.before);else{try{setData(parseSchematic(data));setPast(p=>[...p.slice(-49),ld.before]);setFuture([]);}catch{setData(ld.before);}}return;}pan.current=null;const wd=wireDrag.current;if(wd){wireDrag.current=null;if(cancel)setData(wd.before);else if(JSON.stringify(data)!==JSON.stringify(wd.before)){try{setData(parseSchematic(data));setPast(p=>[...p.slice(-49),wd.before]);setFuture([]);}catch{setData(wd.before);setError('배선 경로가 너무 복잡해요.');}}return;}const d=drag.current;if(!d)return;drag.current=null;if(cancel)setData(d.before);else if(JSON.stringify(data)!==JSON.stringify(d.before)){setPast(p=>[...p.slice(-49),d.before]);setFuture([]);}}
  async function importPNG(file?:Blob,fromClipboard=false){if(!file||saving)return;setClipboardError(false);try{if(file.size>20*1024*1024)throw new Error('20MB 이하 PNG를 선택해주세요.');const next=await readSchematicPNG(new Uint8Array(await file.arrayBuffer()));replace(next);setError('');}catch(e){setClipboardError(fromClipboard);setError(fromClipboard?'복사된 이미지에서 편집용 회로 데이터를 읽지 못했어요. 이미지 복사 과정에서 원본 정보가 제거될 수 있어요. 다운로드한 원본 PNG를 열어주세요.':e instanceof Error?e.message:'PNG를 열지 못했어요.');}}
  async function openPNG(){if(saving||readingClipboard)return;setClipboardError(false);setReadingClipboard(true);try{if(navigator.clipboard?.read){const items=await navigator.clipboard.read();for(const item of items){if(item.types.includes('image/png')){await importPNG(await item.getType('image/png'),true);return;}}}}catch{/* Permission denied or unsupported: keep ordinary file opening available. */}finally{setReadingClipboard(false);}fileInput.current?.click();}
  async function copyPNG(){if(!exportCanvas.current||saving)return;setSaving(true);setCopying(true);setError('');setClipboardError(false);try{await copySchematicPNG(exportCanvas.current);setNotice('이미지를 복사했어요. Notion에서 붙여넣으세요.');}catch{setError('이미지를 복사하지 못했어요. 브라우저의 클립보드 권한을 확인하거나 PNG 내보내기를 이용해주세요.');}finally{setSaving(false);setCopying(false);}}
  async function exportPNG(){if(!exportCanvas.current)return;setSaving(true);setError('');try{await exportSchematicPNG(exportCanvas.current,pruneFreeEndpoints(data));setExported(JSON.stringify(data));setNotice('편집 가능한 PNG를 내보냈어요. 원본 파일을 보관해주세요.');}catch(e){setError(e instanceof Error?e.message:'PNG를 만들지 못했어요.');}finally{setSaving(false);}}
- return createPortal(<dialog className="diagram-dialog schematic-fullscreen" ref={dialog} aria-label="Schematic 편집" onCancel={e=>e.preventDefault()} onPaste={e=>{if(saving||(e.target as Element).closest('input,textarea,[contenteditable="true"]'))return;const file=Array.from(e.clipboardData.files).find(f=>f.type==='image/png');if(file){e.preventDefault();void importPNG(file,true);}}} onDragOver={e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}}} onDrop={e=>{e.preventDefault();void importPNG(e.dataTransfer.files[0]);}}><header><strong>Schematic</strong><div inert={saving}><span className="schematic-shortcuts">W 배선 · R 회전</span><button type="button" onClick={()=>replace(emptySchematic())}>새 회로</button><button type="button" title="클립보드 PNG 열기 · Shift+클릭으로 파일 선택 · Ctrl+V로 붙여넣기" disabled={readingClipboard} onClick={e=>{if(e.shiftKey)fileInput.current?.click();else void openPNG();}}>{readingClipboard?"확인 중…":"PNG 열기"}</button><input ref={fileInput} hidden type="file" accept=".png,image/png" onChange={e=>{void importPNG(e.target.files?.[0]);e.target.value='';}}/><button type="button" aria-pressed={!inspector} onClick={()=>setInspector(false)}>소자</button><button type="button" aria-pressed={inspector} onClick={()=>setInspector(!inspector)}>속성</button><button disabled={saving} onClick={()=>void copyPNG()}>{copying?"복사 중…":"이미지 복사"}</button><button className="diagram-primary" disabled={saving} onClick={()=>void exportPNG()}>{saving&&!copying?'내보내는 중…':'PNG 내보내기'}</button></div></header>
+ return createPortal(<dialog className="diagram-dialog schematic-fullscreen" ref={dialog} aria-label="Schematic 편집" onCancel={e=>{e.preventDefault();cancelPlacement();}} onKeyDownCapture={e=>{
+  if(e.key==='Escape'&&placement){
+   e.preventDefault();
+   e.stopPropagation();
+   cancelPlacement();
+  }
+ }} onPaste={e=>{if(saving||(e.target as Element).closest('input,textarea,[contenteditable="true"]'))return;const file=Array.from(e.clipboardData.files).find(f=>f.type==='image/png');if(file){e.preventDefault();void importPNG(file,true);}}} onDragOver={e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}}} onDrop={e=>{e.preventDefault();void importPNG(e.dataTransfer.files[0]);}}><header><strong>Schematic</strong><div inert={saving}><span className="schematic-shortcuts">W 배선 · R 회전</span><button type="button" onClick={()=>replace(emptySchematic())}>새 회로</button><button type="button" title="클립보드 PNG 열기 · Shift+클릭으로 파일 선택 · Ctrl+V로 붙여넣기" disabled={readingClipboard} onClick={e=>{if(e.shiftKey)fileInput.current?.click();else void openPNG();}}>{readingClipboard?"확인 중…":"PNG 열기"}</button><input ref={fileInput} hidden type="file" accept=".png,image/png" onChange={e=>{void importPNG(e.target.files?.[0]);e.target.value='';}}/><button type="button" aria-pressed={!inspector} onClick={()=>setInspector(false)}>소자</button><button type="button" aria-pressed={inspector} onClick={()=>setInspector(!inspector)}>속성</button><button disabled={saving} onClick={()=>void copyPNG()}>{copying?"복사 중…":"이미지 복사"}</button><button className="diagram-primary" disabled={saving} onClick={()=>void exportPNG()}>{saving&&!copying?'내보내는 중…':'PNG 내보내기'}</button></div></header>
  <div className="diagram-tools" inert={saving}>{editable&&<><button type="button" aria-pressed={wireMode} onClick={toggleWire}>Wire (W)</button><button type="button" disabled={!past.length} onClick={undo}>실행 취소</button><button type="button" disabled={!future.length} onClick={redo}>다시 실행</button></>}
  </div>
  {error&&<p className="error-text" role="alert">{error}{clipboardError&&<button type="button" onClick={()=>fileInput.current?.click()}>파일에서 열기</button>}</p>}
- <div inert={saving} className={`diagram-layout ${editable||inspector?'':'schematic-wide'}`}><div className="diagram-viewport" ref={viewport} style={{cursor:wireMode?'crosshair':undefined}} onPointerDown={e=>{if(e.button===1){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pan.current={x:e.clientX,y:e.clientY,left:e.currentTarget.scrollLeft,top:e.currentTarget.scrollTop};}}} tabIndex={0} aria-label="회로 캔버스" onPointerMove={move} onPointerUp={()=>end()} onPointerCancel={()=>end(true)} onKeyDown={e=>{if(!editable||(e.target as HTMLElement).closest('input,select,textarea'))return;const key=e.key.toLowerCase();if(key==='escape'){setPending(null);setWaypoints([]);setWireMode(false);e.preventDefault();e.stopPropagation();}if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&key==='w'){e.preventDefault();toggleWire();}if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&key==='r'&&part){e.preventDefault();update({rotation:((part.rotation+90)%360) as Part['rotation']});}if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();}if(['delete','backspace'].includes(key)){e.preventDefault();remove();}if(part&&['arrowleft','arrowright','arrowup','arrowdown'].includes(key)){e.preventDefault();const step=e.shiftKey?GRID*5:GRID;update({x:part.x+(key==='arrowleft'?-step:key==='arrowright'?step:0),y:part.y+(key==='arrowup'?-step:key==='arrowdown'?step:0)});}}}><div style={{width:SHEET.width*zoom}}><SchematicCanvas data={data} svgRef={svg} selected={selected} pending={pending} grid pinRadius={Math.min(GRID*.45,8/zoom)} wiring={wireMode} previewBend={bend} waypoints={waypoints} onWireDrag={editable?startWireDrag:undefined} preview={wireMode&&pending?pointer:null} onBlank={editable?blank:undefined} onWire={editable?wireClick:undefined} onSelect={editable?setSelected:undefined} onPin={editable?pin:undefined} onDrag={editable?start:undefined} onLabelDrag={editable?startLabel:undefined}/></div></div>
+ <div inert={saving} className={`diagram-layout ${editable||inspector?'':'schematic-wide'}`}><div className="diagram-viewport" ref={viewport} style={{cursor:wireMode||placement?'crosshair':undefined}}
+ onClickCapture={placePart}
+ onPointerDownCapture={e=>{
+  if(placement&&e.button===0&&svg.current?.contains(e.target as Node))e.stopPropagation();
+ }}
+ onPointerLeave={clearPlacementPoint}
+ onScroll={()=>{
+  if(placement&&placementCursor.current)updatePlacementPoint(placementCursor.current);
+ }}
+ onPointerDown={e=>{if(e.button===1){e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pan.current={x:e.clientX,y:e.clientY,left:e.currentTarget.scrollLeft,top:e.currentTarget.scrollTop};}}} tabIndex={0} aria-label="회로 캔버스" onPointerMove={move} onPointerUp={e=>{
+  if(placement&&e.button===0)placementCursor.current={clientX:e.clientX,clientY:e.clientY};
+  end();
+ }} onPointerCancel={()=>end(true)} onKeyDown={e=>{if(!editable||(e.target as HTMLElement).closest('input,select,textarea'))return;const key=e.key.toLowerCase();if(key==='escape'){setPending(null);setWaypoints([]);setWireMode(false);e.preventDefault();e.stopPropagation();}if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&key==='w'){e.preventDefault();toggleWire();}if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&key==='r'&&(part||placement)){
+  e.preventDefault();
+  if(placement)setPlacement({...placement,rotation:((placement.rotation+90)%360) as Part['rotation']});
+  else if(part)update({rotation:((part.rotation+90)%360) as Part['rotation']});
+ }if((e.ctrlKey||e.metaKey)&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();}if(['delete','backspace'].includes(key)){e.preventDefault();remove();}if(part&&['arrowleft','arrowright','arrowup','arrowdown'].includes(key)){e.preventDefault();const step=e.shiftKey?GRID*5:GRID;update({x:part.x+(key==='arrowleft'?-step:key==='arrowright'?step:0),y:part.y+(key==='arrowup'?-step:key==='arrowdown'?step:0)});}}}><div style={{width:SHEET.width*zoom}}><SchematicCanvas data={data} svgRef={svg} placementPreview={placementPreview} selected={selected} pending={pending} grid pinRadius={Math.min(GRID*.45,8/zoom)} wiring={wireMode} previewBend={bend} waypoints={waypoints} onWireDrag={editable?startWireDrag:undefined} preview={wireMode&&pending?pointer:null} onBlank={editable?blank:undefined} onWire={editable?wireClick:undefined} onSelect={editable?setSelected:undefined} onPin={editable?pin:undefined} onDrag={editable?start:undefined} onLabelDrag={editable?startLabel:undefined}/></div></div>
  <aside className="diagram-inspector schematic-sidebar" aria-label={inspector?'속성':'소자 라이브러리'} hidden={!editable&&!inspector}>
- {editable&&!inspector&&<div className="schematic-components"><input type="search" aria-label="소자 검색" placeholder="소자 검색" value={componentSearch} onChange={e=>setComponentSearch(e.target.value)}/><nav className="component-categories">{["All","Source","Analog","Digital"].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</nav><div className="schematic-component-list">{filteredComponents.map(p=><button type="button" key={p.kind} disabled={data.parts.filter(p=>p.kind!=="junction").length>=100} onClick={()=>add(p.kind)}><svg className="part-symbol-preview" viewBox="-70 -70 140 140" aria-hidden="true" stroke="currentColor" color="currentColor" strokeWidth="3" fill="none"><PartSymbol kind={p.kind}/></svg><span>{p.name}</span></button>)}</div>{!filteredComponents.length&&<p role="status">검색 결과 없음</p>}</div>}
+ {editable&&!inspector&&<div className="schematic-components"><input type="search" aria-label="소자 검색" placeholder="소자 검색" value={componentSearch} onChange={e=>setComponentSearch(e.target.value)}/><nav className="component-categories">{["All","Source","Analog","Digital"].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</nav><div className="schematic-component-list">{filteredComponents.map(p=><button type="button" key={p.kind} disabled={partLimitReached} aria-pressed={placement?.kind===p.kind} onClick={()=>startPlacement(p.kind)}><svg className="part-symbol-preview" viewBox="-70 -70 140 140" aria-hidden="true" stroke="currentColor" color="currentColor" strokeWidth="3" fill="none"><PartSymbol kind={p.kind}/></svg><span>{p.name}</span></button>)}</div>{!filteredComponents.length&&<p role="status">검색 결과 없음</p>}</div>}
  <div hidden={!inspector}>{editable&&<><label>회로 제목<input maxLength={120} value={data.title} onChange={e=>change({...data,title:e.target.value})}/></label>
- {part&&<fieldset><legend>{PARTS[part.kind].name}</legend><label>소자 이름<input key={part.id+part.ref} defaultValue={part.ref} maxLength={20} onBlur={e=>{if(e.target.value!==part.ref&&!update({ref:e.target.value.trim()}))e.target.value=part.ref;}}/></label><label>값 / 설명<input maxLength={100} value={part.value} onChange={e=>update({value:e.target.value})}/></label><label>회전<Select value={part.rotation} onChange={e=>update({rotation:Number(e.target.value) as Part['rotation']})}>{[0,90,180,270].map(r=><option key={r} value={r}>{r}°</option>)}</Select></label><button type="button" disabled={data.parts.filter(p=>p.kind!=="junction").length>=100} onClick={()=>{const copy=movePart({...part,id:crypto.randomUUID(),ref:nextRef(data,part.kind)},part.x+40,part.y+40);change({...data,parts:[...data.parts,copy]});setSelected(copy.id);}}>소자 복제</button><button type="button" onClick={remove}>소자 삭제</button></fieldset>}
+ {part&&<fieldset><legend>{PARTS[part.kind].name}</legend><label>소자 이름<input key={part.id+part.ref} defaultValue={part.ref} maxLength={20} onBlur={e=>{if(e.target.value!==part.ref&&!update({ref:e.target.value.trim()}))e.target.value=part.ref;}}/></label><label>값 / 설명<input maxLength={100} value={part.value} onChange={e=>update({value:e.target.value})}/></label><label>회전<Select value={part.rotation} onChange={e=>update({rotation:Number(e.target.value) as Part['rotation']})}>{[0,90,180,270].map(r=><option key={r} value={r}>{r}°</option>)}</Select></label><button type="button" disabled={partLimitReached} onClick={()=>{const copy=movePart({...part,id:crypto.randomUUID(),ref:nextRef(data,part.kind)},part.x+40,part.y+40);change({...data,parts:[...data.parts,copy]});setSelected(copy.id);}}>소자 복제</button><button type="button" onClick={remove}>소자 삭제</button></fieldset>}
  {wire&&<fieldset><legend>선택한 배선</legend><button type="button" onClick={remove}>배선 삭제</button></fieldset>}</>}
  <h3>연결 정보</h3><p>교차하거나 겹친 선은 자동 연결되지 않아요. Wire 모드에서 기존 배선을 클릭하면 접속점이 자동으로 생겨요. 모든 접지는 같은 기준 노드 0으로 묶여요.</p>{schematicWarnings(data).map(message=><p key={message}>{message}</p>)}<details><summary>노드별 연결된 핀 ({connectionNets(data).length})</summary>{connectionNets(data).map(net=><p key={net.name}><strong>{net.name}</strong>: {net.pins.join(', ')}</p>)}</details></div></aside></div><div aria-hidden="true" style={{position:"fixed",left:-10000,top:0,width:1000,visibility:"hidden",pointerEvents:"none"}}><SchematicCanvas data={data} svgRef={exportCanvas}/></div>{notice&&<div className="circuit-notice" role="status" onClick={()=>setNotice('')}>{notice}</div>}</dialog>,document.body);
 }
